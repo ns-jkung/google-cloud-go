@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -468,7 +469,18 @@ func (rp *routingPublisher) routeToPublisher(msg *pb.PubSubMessage) (*lazyPartit
 		return nil, ErrServiceUninitialized
 	}
 
-	partition := rp.msgRouter.Route(msg.GetKey())
+	partition := 0
+	if customPartition, ok := msg.Attributes["__partition"]; ok {
+		parsed, parseErr := strconv.Atoi(string(customPartition.GetValues()[0]))
+		if parseErr != nil {
+			partition = rp.msgRouter.Route(msg.GetKey())
+		} else {
+			partition = parsed
+		}
+	} else {
+		partition = rp.msgRouter.Route(msg.GetKey())
+	}
+
 	if partition >= len(rp.publishers) {
 		// Should not occur.
 		err := fmt.Errorf("pubsublite: publisher not found for partition %d", partition)
